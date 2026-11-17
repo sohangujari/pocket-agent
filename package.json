@@ -14,9 +14,13 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:migrate": "npm run migrate -w @pocket/db",
     "db:generate": "npm run generate -w @pocket/db",
-    "cli": "npm run dev -w @pocket/cli"
+    "cli": "npm run dev -w @pocket/cli",
+    "test": "vitest run"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.7"
   }
 }

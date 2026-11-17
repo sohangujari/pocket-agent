@@ -3,6 +3,9 @@
  * Values are read lazily so `next build` does not require a live environment.
  */
 
+import { z } from "zod";
+import { isValidTimeZone } from "./time.js";
+
 function read(name: string): string | undefined {
   const v = process.env[name];
   return v && v.trim().length > 0 ? v.trim() : undefined;
@@ -138,4 +141,119 @@ export function requireEnv(name: string): string {
   const v = read(name);
   if (!v) throw new Error(`Missing required environment variable: ${name}`);
   return v;
+}
+
+/* ------------------------------------------------------------------ *
+ * Boot-time validation (PRD v0.2, Phase 0)
+ *
+ * `next build` never needs a live environment, so validation runs from
+ * `instrumentation.ts` at server start instead of at import time. A bad
+ * value fails fast with one clear line per problem.
+ * ------------------------------------------------------------------ */
+
+const csvIds = z
+  .string()
+  .optional()
+  .refine(
+    (value) => !value || value.split(",").every((part) => /^\s*\d*\s*$/.test(part)),
+    "must be a comma-separated list of numeric IDs",
+  );
+
+const httpUrl = (name: string) =>
+  z
+    .string()
+    .optional()
+    .refine(
+      (value) => !value || /^https?:\/\/[^\s]+$/i.test(value),
+      `${name} must be an http(s) URL`,
+    );
+
+const envSchema = z
+  .object({
+    NODE_ENV: z.enum(["development", "test", "production"]).optional(),
+    DATABASE_URL: z
+      .string({ error: "DATABASE_URL is required (postgres://user:pass@host:5432/db)" })
+      .min(1, "DATABASE_URL is required"),
+    AUTH_SECRET: z
+      .string({ error: "AUTH_SECRET is required" })
+      .min(16, "AUTH_SECRET must be at least 16 characters"),
+    MASTER_KEY: z.string().min(16, "MASTER_KEY must be at least 16 characters").optional(),
+    CRON_SECRET: z.string().min(8, "CRON_SECRET should be at least 8 characters").optional(),
+    APP_URL: httpUrl("APP_URL"),
+    DEFAULT_TIMEZONE: z
+      .string()
+      .optional()
+      .refine(
+        (value) => !value || isValidTimeZone(value),
+        "DEFAULT_TIMEZONE must be an IANA zone such as Asia/Kolkata",
+      ),
+    MAX_STEPS: z.coerce.number().int().min(1).max(200).optional(),
+    MAX_RUN_TOKENS: z.coerce.number().int().min(1_000).optional(),
+    DELEGATION_CONCURRENCY: z.coerce.number().int().min(1).max(10).optional(),
+    APPROVAL_MODE: z.enum(["dangerous", "writes", "never"]).optional(),
+    EXEC_BACKEND: z.enum(["disabled", "local", "e2b"]).optional(),
+    SEARCH_PROVIDER: z.enum(["none", "tavily", "brave", "searxng"]).optional(),
+    TELEGRAM_ALLOWED_USER_IDS: csvIds,
+    DISCORD_ALLOWED_USER_IDS: z.string().optional(),
+    LEARNING_ENABLED: z.enum(["true", "false"]).optional(),
+  })
+  .superRefine((value, ctx) => {
+    // Code execution must never run beside MASTER_KEY and DATABASE_URL in a
+    // production container (PRD §3.4).
+    if (
+      value.NODE_ENV === "production" &&
+      value.EXEC_BACKEND &&
+      value.EXEC_BACKEND !== "disabled" &&
+      value.EXEC_BACKEND !== "e2b"
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["EXEC_BACKEND"],
+        message:
+          "EXEC_BACKEND=local is refused in production; use disabled or an isolated backend (e2b)",
+      });
+    }
+  });
+
+export type ValidatedEnv = z.infer<typeof envSchema>;
+
+export class EnvValidationError extends Error {
+  readonly problems: string[];
+  constructor(problems: string[]) {
+    super(`Invalid environment:\n  - ${problems.join("\n  - ")}`);
+    this.name = "EnvValidationError";
+    this.problems = problems;
+  }
+}
+
+/**
+ * Validate the process environment. Throws EnvValidationError listing every
+ * problem at once. Returns non-fatal warnings for values that only degrade
+ * security or reliability.
+ */
+export function validateEnv(): { env: ValidatedEnv; warnings: string[] } {
+  const parsed = envSchema.safeParse(process.env);
+  if (!parsed.success) {
+    throw new EnvValidationError(
+      parsed.error.issues.map((issue) => {
+        const key = issue.path.join(".") || "environment";
+        return `${key}: ${issue.message}`;
+      }),
+    );
+  }
+
+  const warnings: string[] = [];
+  const env = parsed.data;
+  if (!env.MASTER_KEY) {
+    warnings.push(
+      "MASTER_KEY is not set; saved provider keys are encrypted with AUTH_SECRET. Set MASTER_KEY and back it up before saving any keys.",
+    );
+  }
+  if (env.NODE_ENV === "production" && !env.MASTER_KEY) {
+    warnings.push("Production without MASTER_KEY: rotating AUTH_SECRET will make saved keys unreadable.");
+  }
+  if (env.NODE_ENV === "production" && !env.CRON_SECRET) {
+    warnings.push("CRON_SECRET is not set; /api/cron/tick is unauthenticated.");
+  }
+  return { env, warnings };
 }

@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Build-time placeholders only. No database or provider is contacted
+      # during `next build`; every page is dynamic.
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:9/ci
+      AUTH_SECRET: ci-dummy-auth-secret-0123456789abcdef
+      MASTER_KEY: ci-dummy-master-key-0123456789abcdef
+      CRON_SECRET: ci-dummy-cron-secret
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test --if-present
+
+      - name: Build
+        run: npm run build
