@@ -1,0 +1,25 @@
+{
+  "name": "Pocket Agent",
+  "short_name": "Pocket",
+  "description": "A personal autonomous agent that lives on a server and works from anywhere.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f6f2ec",
+  "theme_color": "#f6f2ec",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

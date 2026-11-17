@@ -1,0 +1,76 @@
+services:
+  - type: web
+    name: pocket-agent
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci --no-audit --no-fund && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.11.0
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=460
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      # Set these in the Render dashboard. `sync: false` keeps them out of git.
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: AUTH_SECRET
+        sync: false
+      - key: MASTER_KEY
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: DEFAULT_TIMEZONE
+        value: Asia/Kolkata
+      - key: AGENT_NAME
+        value: Pocket Agent
+      - key: MAX_STEPS
+        value: "24"
+      - key: MAX_RUN_TOKENS
+        value: "120000"
+      - key: LEARNING_ENABLED
+        value: "true"
+      - key: APPROVAL_MODE
+        value: dangerous
+      - key: EXEC_BACKEND
+        value: disabled
+      - key: SEARCH_PROVIDER
+        value: none
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ZAI_API_KEY
+        sync: false
+      - key: SEARCH_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: pocket-agent
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: TELEGRAM_ALLOWED_USER_IDS
+        sync: false
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: DISCORD_APPLICATION_ID
+        sync: false
+      - key: DISCORD_PUBLIC_KEY
+        sync: false
+      - key: DISCORD_ALLOWED_USER_IDS
+        sync: false

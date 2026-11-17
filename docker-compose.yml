@@ -1,0 +1,65 @@
+# Pocket Agent — local / self-hosted stack
+#
+#   cp .env.example .env      # then fill in AUTH_SECRET, MASTER_KEY, provider keys
+#   docker compose up --build
+#   open http://localhost:3000
+#
+# The first visit asks you to set a dashboard password.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pocket
+      POSTGRES_PASSWORD: pocket
+      POSTGRES_DB: pocket
+    ports:
+      - "5432:5432"
+    volumes:
+      - pocket-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pocket -d pocket"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://pocket:pocket@db:5432/pocket
+      APP_URL: http://localhost:3000
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Secrets come from .env (never committed).
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+      MASTER_KEY: ${MASTER_KEY:-}
+      CRON_SECRET: ${CRON_SECRET:-}
+      OWNER_EMAIL: ${OWNER_EMAIL:-owner@localhost}
+      OWNER_PASSWORD: ${OWNER_PASSWORD:-}
+      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-UTC}
+      AGENT_NAME: ${AGENT_NAME:-Pocket Agent}
+      MAX_STEPS: ${MAX_STEPS:-24}
+      MAX_RUN_TOKENS: ${MAX_RUN_TOKENS:-120000}
+      LEARNING_ENABLED: ${LEARNING_ENABLED:-true}
+      APPROVAL_MODE: ${APPROVAL_MODE:-dangerous}
+      EXEC_BACKEND: ${EXEC_BACKEND:-disabled}
+      SEARCH_PROVIDER: ${SEARCH_PROVIDER:-none}
+      SEARCH_API_KEY: ${SEARCH_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ZAI_API_KEY: ${ZAI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_ALLOWED_USER_IDS: ${TELEGRAM_ALLOWED_USER_IDS:-}
+
+volumes:
+  pocket-db:

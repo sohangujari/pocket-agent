@@ -1,0 +1,22 @@
+{
+  "name": "pocket-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A personal autonomous AI agent that lives on a server and is controlled from anything.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @pocket/web",
+    "build": "npm run build -w @pocket/web",
+    "start": "npm run start -w @pocket/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:migrate": "npm run migrate -w @pocket/db",
+    "db:generate": "npm run generate -w @pocket/db",
+    "cli": "npm run dev -w @pocket/cli"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
